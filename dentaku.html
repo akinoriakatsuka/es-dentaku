@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Event Sourcing電卓</title>
+    <style>
+        .calculator {
+            width: 350px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px #ddd;
+        }
+
+        #result {
+            width: 95%;
+            height: 40px;
+            font-size: 18px;
+            text-align: right;
+            margin: 16px 6px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .keys {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 4px;
+        }
+
+        .key-row {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            margin: 2px 0;
+        }
+
+        .keys button {
+            width: calc(20% - 6px);
+            height: 40px;
+            font-size: 18px;
+            margin: 2px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            background: #f4f4f4;
+            cursor: pointer;
+        }
+
+        .keys button:hover {
+            background: #eef;
+        }
+
+        .event-log {
+            font-size: 12px;
+            color: #555;
+            max-height: 80px;
+            overflow-y: auto;
+            margin: 10px;
+            border: 1px solid #eee;
+            background: #fafafa;
+            padding: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="calculator">
+        <button id="copyLogBtn" style="margin: 10px; float: right;">操作ログをコピー</button>
+        <textarea id="importLogArea" placeholder="ここに操作ログを貼り付け"
+            style="width:98%;height:40px;margin:10px 0;resize:vertical;"></textarea>
+        <button id="importLogBtn" style="margin-bottom:10px;">操作ログから復元</button>
+        <input type="text" id="result" readonly>
+        <div class="keys">
+            <div class="key-row">
+                <button onclick="appendChar('7')">7</button>
+                <button onclick="appendChar('8')">8</button>
+                <button onclick="appendChar('9')">9</button>
+                <button onclick="clearCalc()">C</button>
+                <button></button>
+            </div>
+            <div class="key-row">
+                <button onclick="appendChar('4')">4</button>
+                <button onclick="appendChar('5')">5</button>
+                <button onclick="appendChar('6')">6</button>
+                <button onclick="appendChar('*')">*</button>
+                <button onclick="appendChar('/')">/</button>
+            </div>
+            <div class="key-row">
+                <button onclick="appendChar('1')">1</button>
+                <button onclick="appendChar('2')">2</button>
+                <button onclick="appendChar('3')">3</button>
+                <button onclick="appendChar('+')">+</button>
+                <button onclick="appendChar('-')">-</button>
+            </div>
+            <div class="key-row">
+                <button onclick="appendChar('0')">0</button>
+                <button onclick="appendChar('00')">00</button>
+                <button onclick="appendChar('.')">.</button>
+                <button onclick="appendChar('+')">+</button>
+                <button onclick="calcResult()">=</button>
+            </div>
+        </div>
+        <div class="event-log" id="eventLog"></div>
+    </div>
+    <script>
+        class CalculatorEvent {
+            constructor(type, value = null) {
+                this.type = type; // "append", "clear", "calculate"
+                this.value = value;
+                this.timestamp = new Date().toLocaleTimeString();
+            }
+        }
+        class EventStore {
+            constructor() {
+                const saved = sessionStorage.getItem('calcEvents');
+                this.events = saved ? JSON.parse(saved) : [];
+            }
+            save() { sessionStorage.setItem('calcEvents', JSON.stringify(this.events)); }
+            add(event) { this.events.push(event); this.save(); }
+            clearAll() { this.events = []; this.save(); }
+            list() { return this.events; }
+        }
+        function replay(events) {
+            let expr = "";
+            for (const event of events) {
+                if (event.type === "append") expr += event.value;
+                if (event.type === "clear") expr = "";
+                if (event.type === "calculate") {
+                    try { expr = eval(expr).toString(); }
+                    catch { expr = "Error"; }
+                }
+            }
+            return expr;
+        }
+        const store = new EventStore();
+        function appendChar(char) { store.add(new CalculatorEvent("append", char)); updateDisplay(); }
+        function clearCalc() { store.add(new CalculatorEvent("clear")); updateDisplay(); }
+        function calcResult() { store.add(new CalculatorEvent("calculate")); updateDisplay(); }
+        function updateDisplay() {
+            document.getElementById("result").value = replay(store.list());
+            renderEventLog();
+        }
+        function renderEventLog() {
+            const logEl = document.getElementById("eventLog");
+            logEl.innerHTML = store.list().map(e =>
+                `<div>[${e.timestamp}] ${e.type} ${e.value !== null ? e.value : ""}</div>`).join("");
+        }
+        window.onload = updateDisplay;
+        // 操作ログから状態を復元
+        document.getElementById("importLogBtn").onclick = function () {
+            const text = document.getElementById("importLogArea").value;
+            const lines = text.split(/\r?\n/).filter(l => l.trim());
+            const events = [];
+            for (const line of lines) {
+                // 例: [12:34:56] append 7
+                const m = line.match(/^\[[^\]]+\]\s+(append|clear|calculate)\s?(.*)$/);
+                if (m) {
+                    const type = m[1];
+                    let value = m[2].trim();
+                    if (value === "") value = null;
+                    events.push({ type, value });
+                }
+            }
+            if (events.length) {
+                store.clearAll();
+                for (const e of events) {
+                    store.add(new CalculatorEvent(e.type, e.value));
+                }
+                updateDisplay();
+                // alert("操作ログから状態を復元しました。");
+            } else {
+                // alert("有効な操作ログが見つかりませんでした。");
+            }
+        };
+        // 操作ログをクリップボードにコピー
+        document.getElementById("copyLogBtn").onclick = function () {
+            const logs = store.list().map(e =>
+                `[${e.timestamp}] ${e.type} ${e.value !== null ? e.value : ""}`
+            ).join("\n");
+            navigator.clipboard.writeText(logs);
+        };
+    </script>
+</body>
+
+</html>
