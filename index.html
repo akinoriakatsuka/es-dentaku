@@ -9,6 +9,9 @@
 </head>
 
 <body>
+    <div class="reset-section">
+        <button id="resetAllBtn">🗑️ 現在の計算をリセット</button>
+    </div>
     <div class="container">
         <div class="calc-section">
             <h2>電卓</h2>
@@ -264,6 +267,13 @@
                 `[${e.timestamp}] ${e.type} ${e.value !== null ? e.value : ""}`
             ).join("\n");
             navigator.clipboard.writeText(logs);
+        };
+        // 全履歴を消去してリセット
+        document.getElementById("resetAllBtn").onclick = function () {
+            if (confirm('全ての履歴を消去してリセットしますか？')) {
+                store.clearAll();
+                updateDisplay();
+            }
         };
     </script>
 </body>
