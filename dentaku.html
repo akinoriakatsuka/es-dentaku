@@ -42,8 +42,8 @@
                     <button onclick="calcResult()">=</button>
                 </div>
                 <div class="key-row" style="margin-top: 10px;">
-                    <button id="undoBtn" onclick="undoAction()" class="undo-redo-btn">↶ 元に戻す</button>
-                    <button id="redoBtn" onclick="redoAction()" class="undo-redo-btn">↷ やり直す</button>
+                    <button id="undoBtn" onclick="undoAction()" class="undo-redo-btn">↶ Undo</button>
+                    <button id="redoBtn" onclick="redoAction()" class="undo-redo-btn">↷ Redo</button>
                 </div>
             </div>
         </div>
@@ -185,17 +185,23 @@
                 if (!activeFlags[index]) return;
                 if (event.type === "append") expr += event.value;
                 if (event.type === "clear") expr = "";
-                if (event.type === "calculate") {
-                    try { expr = eval(expr).toString(); }
-                    catch { expr = "Error"; }
-                }
+                if (event.type === "calculate") expr = eval(expr).toString();
             });
             return expr;
         }
         const store = new EventStore();
         function appendChar(char) { store.add(new CalculatorEvent("append", char)); updateDisplay(); }
         function clearCalc() { store.add(new CalculatorEvent("clear")); updateDisplay(); }
-        function calcResult() { store.add(new CalculatorEvent("calculate")); updateDisplay(); }
+        function calcResult() {
+            const currentExpr = replay(store.events);
+            try {
+                eval(currentExpr);
+                store.add(new CalculatorEvent("calculate"));
+                updateDisplay();
+            } catch {
+                alert('expression is invalid');
+            }
+        }
         function undoAction() { if (store.canUndo()) { store.add(new CalculatorEvent("undo")); updateDisplay(); } }
         function redoAction() { if (store.canRedo()) { store.add(new CalculatorEvent("redo")); updateDisplay(); } }
         function updateDisplay() {
