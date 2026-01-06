@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <title>Event Sourcing電卓</title>
     <link rel="stylesheet" href="dentaku.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.0/math.min.js"></script>
 </head>
 
 <body>
@@ -185,7 +186,14 @@
                 if (!activeFlags[index]) return;
                 if (event.type === "append") expr += event.value;
                 if (event.type === "clear") expr = "";
-                if (event.type === "calculate") expr = eval(expr).toString();
+                if (event.type === "calculate") {
+                    try {
+                        expr = math.evaluate(expr).toString();
+                    } catch (e) {
+                        // exprは上書きしない
+                        alert('不正な数式表現です');
+                    }
+                }
                 if (event.type === "backspace" && expr.length > 0) expr = expr.slice(0, -1);
             });
             return expr;
@@ -197,7 +205,7 @@
         function calcResult() {
             const currentExpr = replay(store.events);
             try {
-                eval(currentExpr);
+                math.evaluate(currentExpr);
                 store.add(new CalculatorEvent("calculate"));
                 updateDisplay();
             } catch {
