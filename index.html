@@ -4,15 +4,18 @@
 <head>
     <meta charset="UTF-8">
     <title>Event Sourcing電卓</title>
-    <link rel="stylesheet" href="dentaku.css">
+    <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.0/math.min.js"></script>
 </head>
 
 <body>
+    <div class="reset-section">
+        <button id="resetAllBtn">🗑️ 現在の計算をリセット</button>
+    </div>
     <div class="container">
         <div class="calc-section">
             <h2>電卓</h2>
-            <input type="text" id="result" readonly>
+            <label for="result"></label><input type="text" id="result" readonly>
             <div class="keys">
                 <div class="key-row">
                     <button onclick="appendChar('7')">7</button>
@@ -52,7 +55,7 @@
         <div class="history-section">
             <h2>イベント履歴</h2>
             <button id="copyLogBtn">操作ログをコピー</button>
-            <textarea id="importLogArea" placeholder="ここに操作ログを貼り付け"></textarea>
+            <label for="importLogArea"></label><textarea id="importLogArea" placeholder="ここに操作ログを貼り付け"></textarea>
             <button id="importLogBtn">操作ログから復元</button>
             <div class="event-log" id="eventLog"></div>
         </div>
@@ -239,7 +242,7 @@
             const events = [];
             for (const line of lines) {
                 // 例: [12:34:56] append 7
-                const m = line.match(/^\[[^\]]+\]\s+(append|clear|calculate|undo|redo|backspace)\s?(.*)$/);
+                const m = line.match(/^\[[^\]]+]\s+(append|clear|calculate|undo|redo|backspace)\s?(.*)$/);
                 if (m) {
                     const type = m[1];
                     let value = m[2].trim();
@@ -264,6 +267,13 @@
                 `[${e.timestamp}] ${e.type} ${e.value !== null ? e.value : ""}`
             ).join("\n");
             navigator.clipboard.writeText(logs);
+        };
+        // 全履歴を消去してリセット
+        document.getElementById("resetAllBtn").onclick = function () {
+            if (confirm('全ての履歴を消去してリセットしますか？')) {
+                store.clearAll();
+                updateDisplay();
+            }
         };
     </script>
 </body>
