@@ -23,10 +23,13 @@ test.describe('Event Sourcing電卓 E2Eテスト', () => {
   test('シナリオ2: 複数の演算（掛け算と引き算）', async ({ page }) => {
     // 5*3-2=13を計算
     await page.getByRole('button', { name: '5' }).click();
-    await page.getByRole('button', { name: '*' }).click();
+    await page.getByRole('button', { name: '×' }).click();
     await page.getByRole('button', { name: '3' }).click();
     await page.getByRole('button', { name: '-' }).click();
-    await page.getByRole('button', { name: '2' }).click();
+    await page.getByRole('button', { name: '1' }).click();
+    await page.getByRole('button', { name: '8' }).click();
+    await page.getByRole('button', { name: '÷' }).click();
+    await page.getByRole('button', { name: '9' }).click();
     await page.getByRole('button', { name: '=' }).click();
 
     // 結果が13であることを確認
