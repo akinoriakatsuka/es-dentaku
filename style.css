@@ -52,11 +52,31 @@ body {
 
 .calc-section {
     max-width: 400px;
+    margin: 0 auto;
 }
 
 @media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+
+    .calc-section,
+    .history-section {
+        padding: 15px;
+    }
+
     .calc-section {
         max-width: 100%;
+    }
+
+    .keys button {
+        height: 60px;
+        font-size: 20px;
+    }
+
+    #result {
+        font-size: 28px;
+        height: 60px;
     }
 }
 
