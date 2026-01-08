@@ -27,6 +27,9 @@ body {
     font-weight: 600;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
     transition: all 0.3s ease;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 #resetAllBtn:hover {
@@ -127,6 +130,9 @@ body {
     cursor: pointer;
     transition: all 0.2s ease;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .keys button:active {
@@ -243,6 +249,7 @@ body {
     font-weight: 600;
     transition: all 0.3s ease;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    touch-action: manipulation;
 }
 
 #copyLogBtn:hover {
@@ -283,6 +290,7 @@ body {
     font-weight: 600;
     transition: all 0.3s ease;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    touch-action: manipulation;
 }
 
 #importLogBtn:hover {
