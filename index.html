@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Event Sourcing電卓</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.0/math.min.js"></script>
@@ -18,34 +19,33 @@
             <label for="result"></label><input type="text" id="result" readonly>
             <div class="keys">
                 <div class="key-row">
-                    <button onclick="appendChar('7')">7</button>
-                    <button onclick="appendChar('8')">8</button>
-                    <button onclick="appendChar('9')">9</button>
-                    <button onclick="clearCalc()">C</button>
-                    <button onclick="backspace()">←</button>
+                    <button onclick="appendChar('7')" class="number-btn">7</button>
+                    <button onclick="appendChar('8')" class="number-btn">8</button>
+                    <button onclick="appendChar('9')" class="number-btn">9</button>
+                    <button onclick="clearCalc()" class="clear-btn">C</button>
+                    <button onclick="backspace()" class="backspace-btn">←</button>
                 </div>
                 <div class="key-row">
-                    <button onclick="appendChar('4')">4</button>
-                    <button onclick="appendChar('5')">5</button>
-                    <button onclick="appendChar('6')">6</button>
-                    <button onclick="appendChar('*')">*</button>
-                    <button onclick="appendChar('/')">/</button>
+                    <button onclick="appendChar('4')" class="number-btn">4</button>
+                    <button onclick="appendChar('5')" class="number-btn">5</button>
+                    <button onclick="appendChar('6')" class="number-btn">6</button>
+                    <button onclick="appendChar('*')" class="operator-btn">×</button>
+                    <button onclick="appendChar('/')" class="operator-btn">÷</button>
                 </div>
                 <div class="key-row">
-                    <button onclick="appendChar('1')">1</button>
-                    <button onclick="appendChar('2')">2</button>
-                    <button onclick="appendChar('3')">3</button>
-                    <button onclick="appendChar('+')">+</button>
-                    <button onclick="appendChar('-')">-</button>
+                    <button onclick="appendChar('1')" class="number-btn">1</button>
+                    <button onclick="appendChar('2')" class="number-btn">2</button>
+                    <button onclick="appendChar('3')" class="number-btn">3</button>
+                    <button onclick="appendChar('+')" class="operator-btn plus-btn">+</button>
+                    <button onclick="appendChar('-')" class="operator-btn minus-btn">-</button>
                 </div>
                 <div class="key-row">
-                    <button onclick="appendChar('0')">0</button>
-                    <button onclick="appendChar('00')">00</button>
-                    <button onclick="appendChar('.')">.</button>
-                    <button onclick="appendChar('+')">+</button>
-                    <button onclick="calcResult()">=</button>
+                    <button onclick="appendChar('0')" class="number-btn">0</button>
+                    <button onclick="appendChar('00')" class="number-btn">00</button>
+                    <button onclick="appendChar('.')" class="number-btn">.</button>
+                    <button onclick="calcResult()" class="equals-btn">=</button>
                 </div>
-                <div class="key-row" style="margin-top: 10px;">
+                <div class="key-row undo-redo-row">
                     <button id="undoBtn" onclick="undoAction()" class="undo-redo-btn">↶ Undo</button>
                     <button id="redoBtn" onclick="redoAction()" class="undo-redo-btn">↷ Redo</button>
                 </div>
