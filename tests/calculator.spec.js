@@ -106,4 +106,80 @@ test.describe('Event Sourcing電卓 E2Eテスト', () => {
     result = await page.locator('#result').inputValue();
     expect(result).toBe('4');
   });
+
+  test('シナリオ6: 操作ログのクリップボードコピー', async ({ page }) => {
+    // クリップボードへのアクセス権限を付与
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+
+    // 計算を実行（1+2=3）
+    await page.getByRole('button', { name: '1' }).click();
+    await page.getByRole('button', { name: '+', exact: true }).first().click();
+    await page.getByRole('button', { name: '2' }).click();
+    await page.getByRole('button', { name: '=' }).click();
+
+    // 結果が3であることを確認
+    let result = await page.locator('#result').inputValue();
+    expect(result).toBe('3');
+
+    // コピーボタンをクリック
+    await page.getByRole('button', { name: '操作ログをコピー' }).click();
+
+    // トーストが表示されることを確認
+    const toast = page.locator('#toast.show.success');
+    await expect(toast).toBeVisible();
+    await expect(toast).toHaveText('操作ログをクリップボードにコピーしました');
+
+    // クリップボードの内容を確認
+    const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+    expect(clipboardText).toContain('append 1');
+    expect(clipboardText).toContain('append +');
+    expect(clipboardText).toContain('append 2');
+    expect(clipboardText).toContain('calculate');
+  });
+
+  test('シナリオ7: 操作ログからの復元', async ({ page }) => {
+    // 最初に計算を実行（5*3）
+    await page.getByRole('button', { name: '5' }).click();
+    await page.getByRole('button', { name: '×' }).click();
+    await page.getByRole('button', { name: '3' }).click();
+
+    // 結果を確認
+    let result = await page.locator('#result').inputValue();
+    expect(result).toBe('5*3');
+
+    // イベントログからタイムスタンプ付きのログをコピー
+    const eventLogText = await page.locator('#eventLog').innerText();
+
+    // confirmダイアログを自動的に受け入れる
+    page.on('dialog', dialog => dialog.accept());
+
+    // リセットして状態をクリア
+    await page.getByRole('button', { name: '🗑️ 現在の計算をリセット' }).click();
+
+    // 結果が空であることを確認
+    result = await page.locator('#result').inputValue();
+    expect(result).toBe('');
+
+    // テキストエリアにログを貼り付け
+    const logArea = page.locator('#importLogArea');
+    await logArea.fill(eventLogText);
+
+    // 復元ボタンをクリック
+    await page.getByRole('button', { name: '操作ログから復元' }).click();
+
+    // トーストが表示されることを確認
+    const toast = page.locator('#toast.show.success');
+    await expect(toast).toBeVisible();
+    await expect(toast).toHaveText('操作ログから状態を復元しました');
+
+    // 結果が復元されていることを確認
+    result = await page.locator('#result').inputValue();
+    expect(result).toBe('5*3');
+
+    // イベントログも復元されていることを確認
+    const restoredLog = await page.locator('#eventLog').textContent();
+    expect(restoredLog).toContain('append 5');
+    expect(restoredLog).toContain('append *');
+    expect(restoredLog).toContain('append 3');
+  });
 });
