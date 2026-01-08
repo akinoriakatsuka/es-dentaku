@@ -60,6 +60,7 @@
             <div class="event-log" id="eventLog"></div>
         </div>
     </div>
+    <div id="toast" class="toast"></div>
     <script>
         class CalculatorEvent {
             constructor(type, value = null) {
@@ -202,6 +203,18 @@
             return expr;
         }
         const store = new EventStore();
+
+        // Toast notification function
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast show ${type}`;
+
+            setTimeout(() => {
+                toast.className = 'toast';
+            }, 3000);
+        }
+
         function appendChar(char) { store.add(new CalculatorEvent("append", char)); updateDisplay(); }
         function clearCalc() { store.add(new CalculatorEvent("clear")); updateDisplay(); }
         function backspace() { store.add(new CalculatorEvent("backspace")); updateDisplay(); }
@@ -256,9 +269,9 @@
                     store.add(new CalculatorEvent(e.type, e.value));
                 }
                 updateDisplay();
-                // alert("操作ログから状態を復元しました。");
+                showToast('操作ログから状態を復元しました', 'success');
             } else {
-                // alert("有効な操作ログが見つかりませんでした。");
+                showToast('有効な操作ログが見つかりませんでした', 'error');
             }
         };
         // 操作ログをクリップボードにコピー
@@ -266,7 +279,11 @@
             const logs = store.events.map(e =>
                 `[${e.timestamp}] ${e.type} ${e.value !== null ? e.value : ""}`
             ).join("\n");
-            navigator.clipboard.writeText(logs);
+            navigator.clipboard.writeText(logs).then(() => {
+                showToast('操作ログをクリップボードにコピーしました', 'success');
+            }).catch(() => {
+                showToast('コピーに失敗しました', 'error');
+            });
         };
         // 全履歴を消去してリセット
         document.getElementById("resetAllBtn").onclick = function () {
