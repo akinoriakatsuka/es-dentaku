@@ -69,139 +69,102 @@
                 this.timestamp = new Date().toLocaleTimeString();
             }
         }
+
+        // Expression集約 - 電卓の式を表現するドメインモデル
+        class Expression {
+            constructor(eventStore) {
+                this.eventStore = eventStore;
+            }
+
+            // イベントの有効/無効を管理する配列を計算
+            calculateActiveFlags() {
+                const events = this.eventStore.events;
+                let activeFlags = events.map(() => true);
+
+                events.forEach((event, index) => {
+                    if (event.type === 'undo') {
+                        // 最後の有効なイベント（undo/redo以外）を無効化
+                        for (let i = index - 1; i >= 0; i--) {
+                            if (activeFlags[i] && events[i].type !== 'undo' && events[i].type !== 'redo') {
+                                activeFlags[i] = false;
+                                break;
+                            }
+                        }
+                    } else if (event.type === 'redo') {
+                        // 最初の無効なイベント（undo/redo以外）を有効化
+                        for (let i = 0; i < index; i++) {
+                            if (!activeFlags[i] && events[i].type !== 'undo' && events[i].type !== 'redo') {
+                                activeFlags[i] = true;
+                                break;
+                            }
+                        }
+                    }
+                });
+
+                return activeFlags;
+            }
+
+            // イベントから現在の式を再構築（Event Sourcingのreplay）
+            replay() {
+                const events = this.eventStore.events;
+                const activeFlags = this.calculateActiveFlags();
+
+                // 有効なイベントのみを使って計算
+                let expr = "";
+                events.forEach((event, index) => {
+                    if (!activeFlags[index]) return;
+                    if (event.type === "append") expr += event.value;
+                    if (event.type === "clear") expr = "";
+                    if (event.type === "calculate") {
+                        try {
+                            expr = math.evaluate(expr).toString();
+                        } catch (e) {
+                            // exprは上書きしない
+                            alert('不正な数式表現です');
+                        }
+                    }
+                    if (event.type === "backspace" && expr.length > 0) expr = expr.slice(0, -1);
+                });
+                return expr;
+            }
+
+            // Undo可能かどうかを判定
+            canUndo() {
+                const events = this.eventStore.events;
+                const activeFlags = this.calculateActiveFlags();
+                return activeFlags.some((active, i) => active && events[i].type !== 'undo' && events[i].type !== 'redo');
+            }
+
+            // Redo可能かどうかを判定
+            canRedo() {
+                const events = this.eventStore.events;
+                const activeFlags = this.calculateActiveFlags();
+                return activeFlags.some((active, i) => !active && events[i].type !== 'undo' && events[i].type !== 'redo');
+            }
+        }
+
+        // EventStore - イベントの永続化のみを担当
         class EventStore {
             constructor() {
                 const saved = sessionStorage.getItem('calcEvents');
                 this.events = saved ? JSON.parse(saved) : [];
-                this.currentIndex = this.calculateCurrentIndex();
             }
+
             save() {
                 sessionStorage.setItem('calcEvents', JSON.stringify(this.events));
-                sessionStorage.setItem('calcCurrentIndex', this.currentIndex.toString());
             }
-            calculateCurrentIndex() {
-                // イベントの有効/無効を管理する配列
-                let activeFlags = this.events.map(() => true);
 
-                this.events.forEach((event, index) => {
-                    if (event.type === 'undo') {
-                        for (let i = index - 1; i >= 0; i--) {
-                            if (activeFlags[i] && this.events[i].type !== 'undo' && this.events[i].type !== 'redo') {
-                                activeFlags[i] = false;
-                                break;
-                            }
-                        }
-                    } else if (event.type === 'redo') {
-                        for (let i = 0; i < index; i++) {
-                            if (!activeFlags[i] && this.events[i].type !== 'undo' && this.events[i].type !== 'redo') {
-                                activeFlags[i] = true;
-                                break;
-                            }
-                        }
-                    }
-                });
-
-                // 有効なイベント（undo/redo以外）の数を返す
-                return activeFlags.filter((active, i) => active && this.events[i].type !== 'undo' && this.events[i].type !== 'redo').length;
-            }
             add(event) {
-                // 全てのイベントをそのまま追加
                 this.events.push(event);
-                this.currentIndex = this.calculateCurrentIndex();
                 this.save();
             }
+
             clearAll() {
                 this.events = [];
-                this.currentIndex = 0;
                 this.save();
             }
-            canUndo() {
-                // 有効なイベント（undo/redo以外）が1つ以上あるか
-                let activeFlags = this.events.map(() => true);
-                this.events.forEach((event, index) => {
-                    if (event.type === 'undo') {
-                        for (let i = index - 1; i >= 0; i--) {
-                            if (activeFlags[i] && this.events[i].type !== 'undo' && this.events[i].type !== 'redo') {
-                                activeFlags[i] = false;
-                                break;
-                            }
-                        }
-                    } else if (event.type === 'redo') {
-                        for (let i = 0; i < index; i++) {
-                            if (!activeFlags[i] && this.events[i].type !== 'undo' && this.events[i].type !== 'redo') {
-                                activeFlags[i] = true;
-                                break;
-                            }
-                        }
-                    }
-                });
-                return activeFlags.some((active, i) => active && this.events[i].type !== 'undo' && this.events[i].type !== 'redo');
-            }
-            canRedo() {
-                // 無効なイベント（undo/redo以外）が1つ以上あるか
-                let activeFlags = this.events.map(() => true);
-                this.events.forEach((event, index) => {
-                    if (event.type === 'undo') {
-                        for (let i = index - 1; i >= 0; i--) {
-                            if (activeFlags[i] && this.events[i].type !== 'undo' && this.events[i].type !== 'redo') {
-                                activeFlags[i] = false;
-                                break;
-                            }
-                        }
-                    } else if (event.type === 'redo') {
-                        for (let i = 0; i < index; i++) {
-                            if (!activeFlags[i] && this.events[i].type !== 'undo' && this.events[i].type !== 'redo') {
-                                activeFlags[i] = true;
-                                break;
-                            }
-                        }
-                    }
-                });
-                return activeFlags.some((active, i) => !active && this.events[i].type !== 'undo' && this.events[i].type !== 'redo');
-            }
         }
-        function replay(events) {
-            // イベントの有効/無効を管理する配列
-            let activeFlags = events.map(() => true);
 
-            events.forEach((event, index) => {
-                if (event.type === 'undo') {
-                    // 最後の有効なイベント（undo/redo以外）を無効化
-                    for (let i = index - 1; i >= 0; i--) {
-                        if (activeFlags[i] && events[i].type !== 'undo' && events[i].type !== 'redo') {
-                            activeFlags[i] = false;
-                            break;
-                        }
-                    }
-                } else if (event.type === 'redo') {
-                    // 最初の無効なイベント（undo/redo以外）を有効化
-                    for (let i = 0; i < index; i++) {
-                        if (!activeFlags[i] && events[i].type !== 'undo' && events[i].type !== 'redo') {
-                            activeFlags[i] = true;
-                            break;
-                        }
-                    }
-                }
-            });
-
-            // 有効なイベントのみを使って計算
-            let expr = "";
-            events.forEach((event, index) => {
-                if (!activeFlags[index]) return;
-                if (event.type === "append") expr += event.value;
-                if (event.type === "clear") expr = "";
-                if (event.type === "calculate") {
-                    try {
-                        expr = math.evaluate(expr).toString();
-                    } catch (e) {
-                        // exprは上書きしない
-                        alert('不正な数式表現です');
-                    }
-                }
-                if (event.type === "backspace" && expr.length > 0) expr = expr.slice(0, -1);
-            });
-            return expr;
-        }
         const store = new EventStore();
 
         // Toast notification function
@@ -219,7 +182,8 @@
         function clearCalc() { store.add(new CalculatorEvent("clear")); updateDisplay(); }
         function backspace() { store.add(new CalculatorEvent("backspace")); updateDisplay(); }
         function calcResult() {
-            const currentExpr = replay(store.events);
+            const expression = new Expression(store);
+            const currentExpr = expression.replay();
             try {
                 math.evaluate(currentExpr);
                 store.add(new CalculatorEvent("calculate"));
@@ -228,18 +192,32 @@
                 alert('expression is invalid');
             }
         }
-        function undoAction() { if (store.canUndo()) { store.add(new CalculatorEvent("undo")); updateDisplay(); } }
-        function redoAction() { if (store.canRedo()) { store.add(new CalculatorEvent("redo")); updateDisplay(); } }
+        function undoAction() {
+            const expression = new Expression(store);
+            if (expression.canUndo()) {
+                store.add(new CalculatorEvent("undo"));
+                updateDisplay();
+            }
+        }
+        function redoAction() {
+            const expression = new Expression(store);
+            if (expression.canRedo()) {
+                store.add(new CalculatorEvent("redo"));
+                updateDisplay();
+            }
+        }
         function updateDisplay() {
-            document.getElementById("result").value = replay(store.events);
+            const expression = new Expression(store);
+            document.getElementById("result").value = expression.replay();
             renderEventLog();
             updateUndoRedoButtons();
         }
         function updateUndoRedoButtons() {
+            const expression = new Expression(store);
             const undoBtn = document.getElementById("undoBtn");
             const redoBtn = document.getElementById("redoBtn");
-            if (undoBtn) undoBtn.disabled = !store.canUndo();
-            if (redoBtn) redoBtn.disabled = !store.canRedo();
+            if (undoBtn) undoBtn.disabled = !expression.canUndo();
+            if (redoBtn) redoBtn.disabled = !expression.canRedo();
         }
         function renderEventLog() {
             const logEl = document.getElementById("eventLog");
