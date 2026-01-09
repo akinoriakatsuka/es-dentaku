@@ -70,76 +70,86 @@
             }
         }
 
-        // Expression集約 - 電卓の式を表現するドメインモデル
-        class Expression {
-            constructor(eventStore) {
-                this.eventStore = eventStore;
+        // Calculation集約 - 計算を表現するドメインモデル
+        class Calculation {
+            constructor() {
+                this.expression = ""; // 現在の式
+                this.undoStack = []; // undo用スタック（過去の状態を保持）
+                this.redoStack = []; // redo用スタック
             }
 
-            // イベントの有効/無効を管理する配列を計算
-            calculateActiveFlags() {
-                const events = this.eventStore.events;
-                let activeFlags = events.map(() => true);
-
-                events.forEach((event, index) => {
-                    if (event.type === 'undo') {
-                        // 最後の有効なイベント（undo/redo以外）を無効化
-                        for (let i = index - 1; i >= 0; i--) {
-                            if (activeFlags[i] && events[i].type !== 'undo' && events[i].type !== 'redo') {
-                                activeFlags[i] = false;
-                                break;
-                            }
-                        }
-                    } else if (event.type === 'redo') {
-                        // 最初の無効なイベント（undo/redo以外）を有効化
-                        for (let i = 0; i < index; i++) {
-                            if (!activeFlags[i] && events[i].type !== 'undo' && events[i].type !== 'redo') {
-                                activeFlags[i] = true;
-                                break;
-                            }
-                        }
-                    }
-                });
-
-                return activeFlags;
-            }
-
-            // イベントから現在の式を再構築（Event Sourcingのreplay）
-            replay() {
-                const events = this.eventStore.events;
-                const activeFlags = this.calculateActiveFlags();
-
-                // 有効なイベントのみを使って計算
-                let expr = "";
-                events.forEach((event, index) => {
-                    if (!activeFlags[index]) return;
-                    if (event.type === "append") expr += event.value;
-                    if (event.type === "clear") expr = "";
-                    if (event.type === "calculate") {
+            // 単一イベントを適用
+            apply(event) {
+                switch (event.type) {
+                    case "append":
+                        this.redoStack.length = 0;
+                        this.undoStack.push(this.expression);
+                        this.expression = this.expression + event.value;
+                        break;
+                    case "clear":
+                        this.redoStack.length = 0;
+                        this.undoStack.push(this.expression);
+                        this.expression = "";
+                        break;
+                    case "calculate":
+                        this.redoStack.length = 0;
                         try {
-                            expr = math.evaluate(expr).toString();
+                            const result = math.evaluate(this.expression).toString();
+                            this.undoStack.push(this.expression);
+                            this.expression = result;
                         } catch (e) {
-                            // exprは上書きしない
+                            // 計算失敗時は状態を変えない
                             alert('不正な数式表現です');
                         }
-                    }
-                    if (event.type === "backspace" && expr.length > 0) expr = expr.slice(0, -1);
-                });
-                return expr;
+                        break;
+                    case "backspace":
+                        this.redoStack.length = 0;
+                        this.undoStack.push(this.expression);
+                        this.expression = this.expression.length > 0 ? this.expression.slice(0, -1) : this.expression;
+                        break;
+                    case "undo":
+                        if (this.undoStack.length > 0) {
+                            this.redoStack.push(this.expression);
+                            this.expression = this.undoStack.pop();
+                        }
+                        break;
+                    case "redo":
+                        if (this.redoStack.length > 0) {
+                            this.undoStack.push(this.expression);
+                            this.expression = this.redoStack.pop();
+                        }
+                        break;
+                }
+            }
+
+            // 現在の式を取得
+            getExpression() {
+                return this.expression;
             }
 
             // Undo可能かどうかを判定
             canUndo() {
-                const events = this.eventStore.events;
-                const activeFlags = this.calculateActiveFlags();
-                return activeFlags.some((active, i) => active && events[i].type !== 'undo' && events[i].type !== 'redo');
+                return this.undoStack.length > 0;
             }
 
             // Redo可能かどうかを判定
             canRedo() {
-                const events = this.eventStore.events;
-                const activeFlags = this.calculateActiveFlags();
-                return activeFlags.some((active, i) => !active && events[i].type !== 'undo' && events[i].type !== 'redo');
+                return this.redoStack.length > 0;
+            }
+        }
+
+        // CalculationRepository - Calculationの永続化とreplayを担当
+        class CalculationRepository {
+            constructor(eventStore) {
+                this.eventStore = eventStore;
+            }
+
+            // イベントをreplayしてCalculationを復元
+            // 本来はリードモデルとして永続化されたものをidなどでfindする（findByIdなど）
+            load() {
+                const calculation = new Calculation();
+                this.eventStore.events.forEach(event => calculation.apply(event));
+                return calculation;
             }
         }
 
@@ -166,6 +176,7 @@
         }
 
         const store = new EventStore();
+        const repository = new CalculationRepository(store);
 
         // Toast notification function
         function showToast(message, type = 'success') {
@@ -182,8 +193,8 @@
         function clearCalc() { store.add(new CalculatorEvent("clear")); updateDisplay(); }
         function backspace() { store.add(new CalculatorEvent("backspace")); updateDisplay(); }
         function calcResult() {
-            const expression = new Expression(store);
-            const currentExpr = expression.replay();
+            const calculation = repository.load();
+            const currentExpr = calculation.getExpression();
             try {
                 math.evaluate(currentExpr);
                 store.add(new CalculatorEvent("calculate"));
@@ -193,31 +204,31 @@
             }
         }
         function undoAction() {
-            const expression = new Expression(store);
-            if (expression.canUndo()) {
+            const calculation = repository.load();
+            if (calculation.canUndo()) {
                 store.add(new CalculatorEvent("undo"));
                 updateDisplay();
             }
         }
         function redoAction() {
-            const expression = new Expression(store);
-            if (expression.canRedo()) {
+            const calculation = repository.load();
+            if (calculation.canRedo()) {
                 store.add(new CalculatorEvent("redo"));
                 updateDisplay();
             }
         }
         function updateDisplay() {
-            const expression = new Expression(store);
-            document.getElementById("result").value = expression.replay();
+            const calculation = repository.load();
+            document.getElementById("result").value = calculation.getExpression();
             renderEventLog();
             updateUndoRedoButtons();
         }
         function updateUndoRedoButtons() {
-            const expression = new Expression(store);
+            const calculation = repository.load();
             const undoBtn = document.getElementById("undoBtn");
             const redoBtn = document.getElementById("redoBtn");
-            if (undoBtn) undoBtn.disabled = !expression.canUndo();
-            if (redoBtn) redoBtn.disabled = !expression.canRedo();
+            if (undoBtn) undoBtn.disabled = !calculation.canUndo();
+            if (redoBtn) redoBtn.disabled = !calculation.canRedo();
         }
         function renderEventLog() {
             const logEl = document.getElementById("eventLog");
