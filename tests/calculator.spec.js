@@ -182,4 +182,28 @@ test.describe('Event Sourcing電卓 E2Eテスト', () => {
     expect(restoredLog).toContain('append *');
     expect(restoredLog).toContain('append 3');
   });
+
+  test('シナリオ8: 不正な式入力時のエラーハンドリング', async ({ page }) => {
+    // ++= を入力
+    await page.getByRole('button', { name: '+', exact: true }).first().click();
+    await page.getByRole('button', { name: '+', exact: true }).first().click();
+
+    // アラートダイアログを検証するリスナーを設定
+    page.on('dialog', async dialog => {
+      expect(dialog.message()).toBe('expression is invalid');
+      await dialog.accept();
+    });
+
+    // =ボタンをクリック
+    await page.getByRole('button', { name: '=' }).click();
+
+    // 式がそのまま表示されていることを確認
+    const result = await page.locator('#result').inputValue();
+    expect(result).toBe('++');
+
+    // イベントログを確認：calculateイベントが追加されていないこと
+    const eventLogText = await page.locator('#eventLog').textContent();
+    expect(eventLogText).toContain('append +');
+    expect(eventLogText).not.toContain('calculate');
+  });
 });
