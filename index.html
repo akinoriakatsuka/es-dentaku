@@ -62,7 +62,7 @@
     </div>
     <div id="toast" class="toast"></div>
     <script>
-        class CalculatorEvent {
+        class CalculationEvent {
             constructor(type, value = null) {
                 this.type = type; // "append", "clear", "calculate"
                 this.value = value;
@@ -105,7 +105,9 @@
                     case "backspace":
                         this.redoStack.length = 0;
                         this.undoStack.push(this.expression);
-                        this.expression = this.expression.length > 0 ? this.expression.slice(0, -1) : this.expression;
+                        this.expression = this.expression.length > 0
+                            ? this.expression.slice(0, -1)
+                            : this.expression;
                         break;
                     case "undo":
                         if (this.undoStack.length > 0) {
@@ -189,15 +191,15 @@
             }, 3000);
         }
 
-        function appendChar(char) { store.add(new CalculatorEvent("append", char)); updateDisplay(); }
-        function clearCalc() { store.add(new CalculatorEvent("clear")); updateDisplay(); }
-        function backspace() { store.add(new CalculatorEvent("backspace")); updateDisplay(); }
+        function appendChar(char) { store.add(new CalculationEvent("append", char)); updateDisplay(); }
+        function clearCalc() { store.add(new CalculationEvent("clear")); updateDisplay(); }
+        function backspace() { store.add(new CalculationEvent("backspace")); updateDisplay(); }
         function calcResult() {
             const calculation = repository.load();
             const currentExpr = calculation.getExpression();
             try {
                 math.evaluate(currentExpr);
-                store.add(new CalculatorEvent("calculate"));
+                store.add(new CalculationEvent("calculate"));
                 updateDisplay();
             } catch {
                 alert('expression is invalid');
@@ -206,14 +208,14 @@
         function undoAction() {
             const calculation = repository.load();
             if (calculation.canUndo()) {
-                store.add(new CalculatorEvent("undo"));
+                store.add(new CalculationEvent("undo"));
                 updateDisplay();
             }
         }
         function redoAction() {
             const calculation = repository.load();
             if (calculation.canRedo()) {
-                store.add(new CalculatorEvent("redo"));
+                store.add(new CalculationEvent("redo"));
                 updateDisplay();
             }
         }
@@ -255,7 +257,7 @@
             if (events.length) {
                 store.clearAll();
                 for (const e of events) {
-                    store.add(new CalculatorEvent(e.type, e.value));
+                    store.add(new CalculationEvent(e.type, e.value));
                 }
                 updateDisplay();
                 showToast('操作ログから状態を復元しました', 'success');
